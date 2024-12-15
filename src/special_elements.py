@@ -15,14 +15,14 @@ class SpecialElement:
 
 class SpecialElementsDetector:
     def __init__(self):
-        # Регулярные выражения для распознавания химических формул
+        # Регулярные выражения для формул
         self.chemical_formula_patterns = [
-            r'[A-Z][a-z]?\d*',  # Простые элементы с числами (Na, Ca2)
-            r'\([^)]+\)\d*',    # Группы в скобках ((SO4)2)
-            r'·\d*H2O',         # Гидраты (·2H2O)
+            r'[A-Z][a-z]?\d*',  # Elements with numbers (Na, Ca2)
+            r'\([^)]+\)\d*',    # Groups with parentheses ((SO4)2)
+            r'·\d*H2O',         # Hydrates (·2H2O)
         ]
         
-        # Словарь медицинских символов и их Unicode-представлений
+        # Медицинские символы
         self.medical_symbols = {
             '♀': 'female',
             '♂': 'male',
@@ -34,6 +34,13 @@ class SpecialElementsDetector:
             '±': 'plus_minus'
         }
 
+        # Шаблоны для медицинских диаграмм
+        self.diagram_types = {
+            'ecg': {'min_peaks': 3, 'aspect_ratio': (3, 1)},
+            'brain_scan': {'min_area': 10000, 'aspect_ratio': (1, 1)},
+            'xray': {'intensity_range': (0.2, 0.8), 'min_area': 50000}
+        }
+
     def detect_chemical_formulas(self, text: str) -> List[SpecialElement]:
         """Detect chemical formulas in text"""
         formulas = []
@@ -43,8 +50,8 @@ class SpecialElementsDetector:
             formula = SpecialElement(
                 type='chemical_formula',
                 content=match.group(),
-                confidence=0.9,  # Можно уточнить на основе контекста
-                location=(0, 0, 0, 0),  # Требуется определение реальных координат
+                confidence=0.9,
+                location=(0, 0, 0, 0),
                 metadata={'context': text[max(0, match.start()-20):match.end()+20]}
             )
             formulas.append(formula)
@@ -67,81 +74,102 @@ class SpecialElementsDetector:
         return symbols
 
     def detect_diagrams(self, image: np.ndarray) -> List[SpecialElement]:
-        """Detect diagrams in images using computer vision"""
+        """Detect and classify medical diagrams"""
         diagrams = []
         
-        # Преобразование в градации серого
+        # Convert to grayscale
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         
-        # Обнаружение границ
+        # Edge detection
         edges = cv2.Canny(gray, 50, 150)
         
-        # Поиск контуров
+        # Find contours
         contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         for contour in contours:
-            # Фильтрация по размеру и форме
             area = cv2.contourArea(contour)
-            if area > 1000:  # Минимальный размер для диаграммы
+            if area > 1000:  # Minimum size threshold
                 x, y, w, h = cv2.boundingRect(contour)
                 
-                diagram = SpecialElement(
-                    type='diagram',
-                    content='',  # Можно добавить извлечение текста из области
-                    confidence=0.8,
-                    location=(x, y, w, h),
-                    metadata={
-                        'area': area,
-                        'aspect_ratio': w/h
-                    }
-                )
-                diagrams.append(diagram)
+                # Extract region
+                roi = gray[y:y+h, x:x+w]
+                
+                # Analyze region properties
+                diagram_type = self._classify_diagram(roi, area, w/h)
+                
+                if diagram_type:
+                    diagram = SpecialElement(
+                        type=f'diagram_{diagram_type}',
+                        content='',
+                        confidence=0.8,
+                        location=(x, y, w, h),
+                        metadata={
+                            'area': area,
+                            'aspect_ratio': w/h,
+                            'classification': diagram_type
+                        }
+                    )
+                    diagrams.append(diagram)
         
         return diagrams
 
-    def detect_molecular_structures(self, image: np.ndarray) -> List[SpecialElement]:
-        """Detect molecular structures in images"""
-        structures = []
+    def _classify_diagram(self, roi: np.ndarray, area: float, aspect_ratio: float) -> str:
+        """Classify diagram type based on image properties"""
+        # Check for ECG pattern
+        if aspect_ratio > 2.5 and self._count_peaks(roi) > 5:
+            return 'ecg'
         
-        # Преобразование в градации серого
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # Check for brain scan
+        elif 0.8 < aspect_ratio < 1.2 and area > 10000:
+            if self._check_brain_scan_features(roi):
+                return 'brain_scan'
         
-        # Применение адаптивного порога
-        binary = cv2.adaptiveThreshold(
-            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-            cv2.THRESH_BINARY_INV, 11, 2
-        )
+        # Check for X-ray
+        elif area > 50000:
+            intensity = np.mean(roi) / 255.0
+            if 0.2 < intensity < 0.8:
+                return 'xray'
         
-        # Поиск линий (связей между атомами)
-        lines = cv2.HoughLinesP(
-            binary, 1, np.pi/180, 50, 
-            minLineLength=30, maxLineGap=10
-        )
+        return 'unknown'
+
+    def _count_peaks(self, signal: np.ndarray) -> int:
+        """Count number of peaks in signal (for ECG detection)"""
+        # Simplify signal to 1D
+        if len(signal.shape) > 1:
+            signal = np.mean(signal, axis=0)
         
-        if lines is not None:
-            # Анализ геометрии линий для определения молекулярных структур
-            structure = SpecialElement(
-                type='molecular_structure',
-                content='',
-                confidence=0.7,
-                location=(0, 0, 0, 0),  # Нужно вычислить общую область
-                metadata={'line_count': len(lines)}
-            )
-            structures.append(structure)
+        # Find peaks
+        peaks, _ = np.histogram(signal, bins=50)
+        return len(peaks[peaks > np.mean(peaks)])
+
+    def _check_brain_scan_features(self, image: np.ndarray) -> bool:
+        """Check if image has characteristics of brain scan"""
+        # Calculate image statistics
+        mean = np.mean(image)
+        std = np.std(image)
         
-        return structures
+        # Brain scans typically have good contrast
+        if std < 30:
+            return False
+        
+        # Check for symmetry
+        height, width = image.shape
+        left_half = image[:, :width//2]
+        right_half = np.fliplr(image[:, width//2:])
+        symmetry = np.corrcoef(left_half.flatten(), right_half.flatten())[0,1]
+        
+        return symmetry > 0.7
 
     def process_page(self, text: str, image: np.ndarray = None) -> List[SpecialElement]:
         """Process a page to detect all special elements"""
         elements = []
         
-        # Обработка текста
+        # Process text
         elements.extend(self.detect_chemical_formulas(text))
         elements.extend(self.detect_medical_symbols(text))
         
-        # Обработка изображения, если оно предоставлено
+        # Process image if provided
         if image is not None:
             elements.extend(self.detect_diagrams(image))
-            elements.extend(self.detect_molecular_structures(image))
         
         return elements
