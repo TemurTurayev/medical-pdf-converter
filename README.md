@@ -75,7 +75,3 @@ medical-pdf-converter/
 │   └── ocr_converter.py       # OCR-enabled converter
 └── requirements.txt           # Python dependencies
 ```
-
-## License
-
-This project is licensed under the MIT License.
