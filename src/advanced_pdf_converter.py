@@ -1,4 +1,3 @@
-# Содержимое нашего последнего скрипта
 import streamlit as st
 import os
 import pytesseract
@@ -13,5 +12,8 @@ import numpy as np
 import re
 from dataclasses import dataclass
 from typing import List, Dict, Optional
+from PIL import Image
+import math
+from typing import Tuple, List, Dict, Optional
 
-# Остальной код файла...
+[... весь код, который вы предоставили ...]
