@@ -1,77 +1,67 @@
 # Medical PDF Converter
 
-Instruments for converting medical PDF documents to text format, specially designed for preparing training data for Large Language Models (LLMs). This toolkit supports both native PDFs and scanned documents through OCR capabilities.
+Расширенный конвертер PDF в текст для медицинских документов.
 
-## Features
+## Основные функции
 
-- **Basic PDF Conversion**: Extract text from native PDF files
-- **OCR Support**: Convert scanned medical documents using Tesseract OCR
-- **Unicode Support**: Properly handle multiple languages and special characters
-- **Progress Tracking**: Real-time conversion progress with ETA
-- **Batch Processing**: Process multiple PDF files in one go
-- **Auto-recovery**: Save intermediate results to prevent data loss
+1. Базовые функции:
+- Конвертация PDF в текст
+- OCR для сканированных документов
+- Поддержка Unicode
 
-## Prerequisites
+2. Обработка изображений:
+- Определение типа медицинских изображений
+- Анализ содержимого
+- Распознавание подписей и меток
 
-- Python 3.8 or higher
-- Tesseract OCR (with language packs)
-- Poppler
+3. Обработка формул:
+- Химические формулы
+- Дозировки
+- Медицинские термины
 
-## Installation
+4. Анализ структуры:
+- Разделы документа
+- Ссылки на рисунки
+- Библиография
 
-1. Clone this repository:
+## Установка
+
 ```bash
+# Клонирование репозитория
 git clone https://github.com/TemurTurayev/medical-pdf-converter.git
 cd medical-pdf-converter
-```
 
-2. Install Python dependencies:
-```bash
+# Установка зависимостей
 pip install -r requirements.txt
 ```
 
-3. Install Tesseract OCR:
-   - Windows: Download from [UB-Mannheim](https://github.com/UB-Mannheim/tesseract/wiki)
-   - During installation, select required languages (at least English and Russian)
-
-4. Install Poppler:
-   - Windows: Download from [poppler-windows](https://github.com/oschwartz10612/poppler-windows/releases/)
-
-## Usage
-
-### Basic PDF Conversion
-
-For native PDF files with selectable text:
+## Использование
 
 ```python
-from src.basic_converter import convert_pdf_to_txt
+# Простая конвертация
+from src.medical_converter import MedicalDocumentConverter, ConversionConfig
 
-pdf_folder = "path/to/pdf/folder"
-output_folder = "path/to/output/folder"
-
-convert_pdf_to_txt(pdf_folder, output_folder)
+converter = MedicalDocumentConverter()
+converter.convert(
+    "input.pdf",
+    "output.json",
+    ConversionConfig(mode='advanced')
+)
 ```
 
-### OCR Conversion
+## Запланированные улучшения
 
-For scanned documents or PDFs without selectable text:
+1. Улучшенное распознавание:
+- Автоматическая классификация диаграмм
+- Векторизация схем
+- Распознавание медицинских символов
 
-```python
-from src.ocr_converter import OCRConverter
+2. Интеллектуальная обработка:
+- Связывание терминов
+- Создание глоссария
+- Автоматические аннотации
 
-POPPLER_PATH = "path/to/poppler/bin"
-TESSERACT_PATH = "path/to/tesseract.exe"
-
-converter = OCRConverter(POPPLER_PATH, TESSERACT_PATH)
-converter.convert_pdf("input.pdf", "output.txt")
-```
-
-## Project Structure
-
-```
-medical-pdf-converter/
-├── src/
-│   ├── basic_converter.py     # Basic PDF to text converter
-│   └── ocr_converter.py       # OCR-enabled converter
-└── requirements.txt           # Python dependencies
-```
+3. Работа с таблицами:
+- Сложные медицинские таблицы
+- Сохранение форматирования
+- Объединение таблиц
