@@ -1,86 +1,82 @@
-import pytesseract
-from pdf2image import convert_from_path
 import os
-from pathlib import Path
+from pdf2image import convert_from_path
+import pytesseract
+from PIL import Image
 from tqdm import tqdm
-import time
 
 class OCRConverter:
-    def __init__(self, poppler_path, tesseract_path):
+    def __init__(self, poppler_path: str, tesseract_path: str):
+        """
+        Initialize OCR converter with required paths.
+        
+        Args:
+            poppler_path (str): Path to poppler binaries
+            tesseract_path (str): Path to tesseract executable
+        """
         self.poppler_path = poppler_path
         pytesseract.pytesseract.tesseract_cmd = tesseract_path
 
-    def save_progress(self, text_list, output_path, current_page):
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write('\n\n'.join(text_list))
-        print(f"\nProgress saved: {current_page} pages processed")
-
-    def convert_pdf(self, pdf_path, output_path, start_page=1):
-        start_time = time.time()
-        print(f"\nProcessing file: {pdf_path.name}")
+    def convert_pdf(self, pdf_path: str, output_path: str, 
+                   languages: str = 'eng+rus', dpi: int = 300) -> None:
+        """
+        Convert PDF to text using OCR.
         
+        Args:
+            pdf_path (str): Path to input PDF file
+            output_path (str): Path for output text file
+            languages (str): Languages for OCR (default: 'eng+rus')
+            dpi (int): DPI for PDF to image conversion (default: 300)
+        """
         try:
-            print("Getting document info...")
-            images = convert_from_path(
-                pdf_path,
-                poppler_path=self.poppler_path,
-                first_page=start_page
-            )
+            # Convert PDF to images
+            images = convert_from_path(pdf_path, dpi=dpi, 
+                                     poppler_path=self.poppler_path)
             
-            total_pages = len(images)
-            print(f"Total pages to process: {total_pages}")
-            
-            total_text = []
-            
-            for i, image in enumerate(tqdm(images, desc="Processing pages", unit="pg")):
-                current_page = start_page + i
-                
-                if i % 5 == 0:
-                    elapsed_time = time.time() - start_time
-                    pages_per_minute = (i + 1) / (elapsed_time / 60) if elapsed_time > 0 else 0
-                    remaining_pages = total_pages - (i + 1)
-                    estimated_time = remaining_pages / pages_per_minute if pages_per_minute > 0 else 0
-                    
-                    print(f"\nPage {current_page}/{total_pages}")
-                    print(f"Speed: {pages_per_minute:.1f} pages/min")
-                    print(f"Est. time remaining: {estimated_time:.1f} minutes")
-                
-                try:
-                    text = pytesseract.image_to_string(image, lang='rus+eng')
-                    if text.strip():
-                        total_text.append(f"[Page {current_page}]\n{text}")
-                    
-                    if i % 20 == 0 and i > 0:
-                        self.save_progress(total_text, output_path, current_page)
+            # Process each page
+            with open(output_path, 'w', encoding='utf-8') as f:
+                for i, image in enumerate(tqdm(images, desc="Processing pages")):
+                    # Extract text using OCR
+                    text = pytesseract.image_to_string(image, lang=languages)
+                    if text:
+                        f.write(f"\n--- Page {i+1} ---\n\n")
+                        f.write(text)
                         
-                except Exception as e:
-                    print(f"\nError on page {current_page}: {str(e)}")
-                    continue
-            
-            self.save_progress(total_text, output_path, current_page)
-            
-            total_time = time.time() - start_time
-            print(f"\nDone! Processed {total_pages} pages in {total_time/60:.1f} minutes")
-            print(f"Results saved to: {output_path}")
-            
         except Exception as e:
-            print(f"\nError processing file: {str(e)}")
+            print(f"Error processing {pdf_path}: {str(e)}")
+            raise
 
-def main():
-    POPPLER_PATH = r"C:\Program Files\poppler\poppler-24.08.0\Library\bin"
-    TESSERACT_PATH = r"C:\Users\user\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"
-    
-    pdf_path = Path(r"C:\Users\user\Desktop\pdf\input.pdf")
-    output_path = Path(r"C:\Users\user\Desktop\txt\output.txt")
-    
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    print("=== Starting PDF to Text OCR Conversion ===")
-    converter = OCRConverter(POPPLER_PATH, TESSERACT_PATH)
-    converter.convert_pdf(pdf_path, output_path)
-    
-    print("\nPress Enter to exit...")
-    input()
+    def batch_convert(self, input_folder: str, output_folder: str, 
+                      languages: str = 'eng+rus', dpi: int = 300) -> None:
+        """
+        Convert multiple PDF files using OCR.
+        
+        Args:
+            input_folder (str): Folder containing PDF files
+            output_folder (str): Folder for output text files
+            languages (str): Languages for OCR (default: 'eng+rus')
+            dpi (int): DPI for PDF to image conversion (default: 300)
+        """
+        os.makedirs(output_folder, exist_ok=True)
+        
+        pdf_files = [f for f in os.listdir(input_folder) 
+                    if f.lower().endswith('.pdf')]
+        
+        for pdf_file in tqdm(pdf_files, desc="Converting files"):
+            try:
+                pdf_path = os.path.join(input_folder, pdf_file)
+                txt_file = os.path.splitext(pdf_file)[0] + '.txt'
+                txt_path = os.path.join(output_folder, txt_file)
+                
+                self.convert_pdf(pdf_path, txt_path, languages, dpi)
+                
+            except Exception as e:
+                print(f"Error processing {pdf_file}: {str(e)}")
+                continue
 
 if __name__ == "__main__":
-    main()
+    # Example usage
+    POPPLER_PATH = r"C:\path\to\poppler\bin"
+    TESSERACT_PATH = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    
+    converter = OCRConverter(POPPLER_PATH, TESSERACT_PATH)
+    converter.convert_pdf("input.pdf", "output.txt")
