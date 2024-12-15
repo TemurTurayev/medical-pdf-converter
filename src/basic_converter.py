@@ -1,75 +1,45 @@
 import os
-from pypdf import PdfReader
-from pathlib import Path
-import time
-import re
+from PyPDF2 import PdfReader
+from tqdm import tqdm
 
-def clean_text(text):
-    if not text or text.isspace():
-        return ""
+def convert_pdf_to_txt(pdf_folder: str, output_folder: str) -> None:
+    """
+    Convert PDF files from a folder to text files.
     
-    text = re.sub(r'\t+', ' ', text)
-    text = re.sub(r' +', ' ', text)
-    text = re.sub(r'\n{3,}', '\n\n', text)
+    Args:
+        pdf_folder (str): Path to folder containing PDF files
+        output_folder (str): Path to output folder for text files
+    """
+    # Create output folder if it doesn't exist
+    os.makedirs(output_folder, exist_ok=True)
     
-    special_chars = {
-        '®': '(R)',
-        '©': '(c)',
-        '™': '(TM)',
-        '°': ' degrees ',
-        '±': '+/-',
-        '≤': '<=',
-        '≥': '>=',
-        '−': '-',
-        '–': '-',
-        '—': '-',
-        '"': '"',
-        '"': '"',
-        ''': "'",
-        ''': "'"
-    }
-    for char, replacement in special_chars.items():
-        text = text.replace(char, replacement)
+    # Get list of PDF files
+    pdf_files = [f for f in os.listdir(pdf_folder) if f.lower().endswith('.pdf')]
     
-    text = re.sub(r'(?<=\n)\s*•\s*', '• ', text)
-    text = re.sub(r'(?<=\n)\s*\d+\.\s*', lambda m: m.group().strip() + ' ', text)
-    text = '\n'.join(line.strip() for line in text.splitlines())
-    return text.strip()
-
-def convert_pdf_to_txt(pdf_folder, output_folder):
-    print(f"\nНачало конвертации файлов")
-    pdf_files = list(Path(pdf_folder).glob('*.pdf'))
-    total_files = len(pdf_files)
-    print(f"Найдено PDF файлов: {total_files}")
-    
-    for index, pdf_path in enumerate(pdf_files, 1):
+    # Process each PDF file
+    for pdf_file in tqdm(pdf_files, desc="Converting PDFs"):
         try:
-            print(f"\nОбработка файла {index}/{total_files}: {pdf_path.name}")
+            # Open PDF file
+            pdf_path = os.path.join(pdf_folder, pdf_file)
             reader = PdfReader(pdf_path)
-            txt_path = Path(output_folder) / f"{pdf_path.stem}.txt"
             
-            with open(txt_path, 'w', encoding='utf-8') as txt_file:
-                full_text = []
-                for page_num, page in enumerate(reader.pages, 1):
+            # Create output text file path
+            txt_file = os.path.splitext(pdf_file)[0] + '.txt'
+            txt_path = os.path.join(output_folder, txt_file)
+            
+            # Extract text from each page
+            with open(txt_path, 'w', encoding='utf-8') as f:
+                for page in reader.pages:
                     text = page.extract_text()
-                    if text and not text.isspace():
-                        text = clean_text(text)
-                        if text:
-                            full_text.append(text)
-                    print(f"  Страница {page_num}/{len(reader.pages)}", end='\r')
-                
-                if not full_text:
-                    print(f"\nПРЕДУПРЕЖДЕНИЕ: Не удалось извлечь текст из {pdf_path.name}")
-                else:
-                    final_text = '\n\n'.join(full_text)
-                    txt_file.write(final_text)
-                    print(f"\nФайл обработан успешно")
-                    
+                    if text:
+                        f.write(text + '\n\n')
+                        
         except Exception as e:
-            print(f"ОШИБКА при обработке {pdf_path.name}: {str(e)}")
+            print(f"Error processing {pdf_file}: {str(e)}")
+            continue
 
 if __name__ == "__main__":
-    pdf_folder = r"C:\Users\user\Desktop\pdf"
-    output_folder = r"C:\Users\user\Desktop\txt"
-    Path(output_folder).mkdir(parents=True, exist_ok=True)
+    # Example usage
+    pdf_folder = "pdfs"
+    output_folder = "output"
     convert_pdf_to_txt(pdf_folder, output_folder)
