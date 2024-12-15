@@ -7,22 +7,15 @@ import time
 
 class OCRConverter:
     def __init__(self, poppler_path, tesseract_path):
-        """
-        Initialize converter with required paths
-        """
         self.poppler_path = poppler_path
         pytesseract.pytesseract.tesseract_cmd = tesseract_path
 
     def save_progress(self, text_list, output_path, current_page):
-        """Save intermediate results"""
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write('\n\n'.join(text_list))
         print(f"\nProgress saved: {current_page} pages processed")
 
     def convert_pdf(self, pdf_path, output_path, start_page=1):
-        """
-        Convert PDF to text using OCR
-        """
         start_time = time.time()
         print(f"\nProcessing file: {pdf_path.name}")
         
@@ -74,14 +67,12 @@ class OCRConverter:
             print(f"\nError processing file: {str(e)}")
 
 def main():
-    # Default paths for Windows
     POPPLER_PATH = r"C:\Program Files\poppler\poppler-24.08.0\Library\bin"
     TESSERACT_PATH = r"C:\Users\user\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"
     
     pdf_path = Path(r"C:\Users\user\Desktop\pdf\input.pdf")
     output_path = Path(r"C:\Users\user\Desktop\txt\output.txt")
     
-    # Create output directory if it doesn't exist
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
     print("=== Starting PDF to Text OCR Conversion ===")
